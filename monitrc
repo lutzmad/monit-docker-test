@@ -1,0 +1,40 @@
+# /etc/monit/monitrc
+# Monit configuration for Docker tests
+# This configuration is designed to test Monit as PID 1 in a container
+
+# -- Global Settings --
+set daemon 3                      # Check services every 3 seconds for faster testing. Use > 5 sec in prod
+set init                          # Prevent Monit from transforming itself into a daemon process
+set logfile /dev/stdout           # Log directly to container output
+set pidfile /var/run/monit.pid    # Location for Monit's own PID file
+set idfile /var/lib/monit/id      # Store Monit ID file
+set statefile /var/lib/monit/state # Store state file
+
+# Enable the web interface for status viewing
+set httpd port 2812 and
+    allow 0.0.0.0/0               # Allow access from anywhere (container only)
+
+# -- Test Case 1: Check program periodically --
+# Monit will execute this script every cycle and check its exit status
+check program test_program with path "/usr/local/bin/program.sh"
+    if status != 0 then exec "/bin/sh -c 'echo Program test failed with status $STATUS >> /results/alerts.log'"
+    if changed status then exec "/bin/sh -c 'echo Program status changed to $STATUS >> /results/alerts.log'"
+
+# -- Test Case 2: Check process via PID file --
+# Monit monitors the existence of the process identified by the PID file
+check process test_process with pidfile /tmp/process.pid
+    start program = "/usr/local/bin/process.sh"
+
+# -- System monitoring --
+# Helps verify Monit is functioning properly as PID 1
+check system $HOST
+    if loadavg(5min) > 4 then exec "/bin/sh -c 'echo System load high: $LOADAVG >> /results/alerts.log'"
+    if memory usage > 95% then exec "/bin/sh -c 'echo Memory usage high: $MEMORYUSAGE% >> /results/alerts.log'"
+    if cpu usage > 95% for 10 cycles then exec "/bin/sh -c 'echo CPU usage high: $CPUUSAGE% >> /results/alerts.log'"
+
+# -- Custom check for zombie processes --
+# This will alert if zombies are detected
+check program zombie_check with path "/usr/local/bin/check_zombies.sh"
+    if status != 0 then exec "/bin/sh -c 'echo Zombie processes detected >> /results/alerts.log'"
+    if changed status then exec "/bin/sh -c 'echo Zombie check status changed to $STATUS >> /results/alerts.log'"
+    every 5 cycles # Run less frequently than the other checks
