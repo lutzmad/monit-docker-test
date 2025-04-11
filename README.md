@@ -10,7 +10,9 @@ Running Monit as PID 1 (init process) in a container provides several key benefi
 
 4. **Built-in Monitoring**: Unlike other init replacements, Monit also provides robust service monitoring, automatic restarts, and notifications, making it a comprehensive solution for container health.
 
-5. **Improved Reliability**: Proper init functionality prevents common issues in containerized applications such as orphaned processes, improper shutdowns, and resource leaks.
+5. **Ordered Startup and Dependencies**: Monit can start services in a specific sequence and manage dependencies between them. This is crucial for multi-service containers where certain services must be fully operational before others start, a capability typically found only in full init systems like systemd.
+
+6. **Improved Reliability**: Proper init functionality prevents common issues in containerized applications such as orphaned processes, improper shutdowns, and resource leaks.
 
 This approach is particularly valuable for production containers where reliability, proper resource management, and clean application lifecycle handling are critical.
 
