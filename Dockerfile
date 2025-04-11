@@ -1,6 +1,6 @@
 FROM debian:bullseye-slim
 
-# Install necessary packages for building Monit (with SSL is optional)
+# Install necessary packages for building Monit (SSL and Pam are optional)
 RUN apt-get update && \
     apt-get install -y \
     zlib1g-dev \
