@@ -17,7 +17,7 @@ set httpd port 2812 and
 # -- Test Case 1: Check program periodically --
 # Monit will execute this script every cycle and check its exit status
 check program test_program with path "/usr/local/bin/program.sh"
-    if status != 0 then exec "/bin/sh -c 'echo Program test failed with status $STATUS >> /results/alerts.log'"
+    if status != 0 then exec "/bin/sh -c 'echo Program test failed with status $MONIT_PROGRAM_STATUS >> /results/alerts.log'"
     if changed status then exec "/bin/sh -c 'echo Program status changed to $STATUS >> /results/alerts.log'"
 
 # -- Test Case 2: Check process via PID file --
@@ -36,5 +36,5 @@ check system $HOST
 # This will alert if zombies are detected
 check program zombie_check with path "/usr/local/bin/check_zombies.sh"
     if status != 0 then exec "/bin/sh -c 'echo Zombie processes detected >> /results/alerts.log'"
-    if changed status then exec "/bin/sh -c 'echo Zombie check status changed to $STATUS >> /results/alerts.log'"
+    if changed status then exec "/bin/sh -c 'echo Zombie check status changed to $MONIT_PROGRAM_STATUS >> /results/alerts.log'"
     every 5 cycles # Run less frequently than the other checks
