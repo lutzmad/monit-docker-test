@@ -193,7 +193,7 @@ Your test is successful if:
 1. **Monit is running as PID 1**: Confirmed in Step 3
 2. **No zombie processes**: Verified in Steps 4 and 5
 3. **Process monitoring works**: Processes restart when killed as seen in Step 6
-4. **Clean shutdown**: Proper signal handling during container termination in Step 9
+4. **Clean shutdown**: Proper signal handling during container termination in Step 10
 5. **Resource efficiency**: Low resource usage as observed in Step 8
 
 ## Troubleshooting
