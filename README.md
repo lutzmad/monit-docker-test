@@ -155,7 +155,12 @@ docker exec -it monit-container bash -c 'ps -o pid,pcpu,pmem,rss,cmd -p 1'
 
 You should see low CPU and memory usage for the Monit process.
 
-## Step 9: Test Signal Handling (Container Shutdown)
+## Step 9: Access the Web Interface
+
+Open a browser and go to:
+- http://localhost:2812 (for monit-container)
+
+## Step 10: Test Signal Handling (Container Shutdown)
 
 Stop the container to test Monit's shutdown handling:
 
@@ -170,11 +175,6 @@ docker logs monit-container | grep -E "shutdown|stopped|performing|responsibilit
 ```
 
 You should see messages indicating that Monit recognized it was running as PID 1 and performed shutdown responsibilities.
-
-## Step 10: Access the Web Interface
-
-Open a browser and go to:
-- http://localhost:2812 (for monit-container)
 
 ## Step 11: Clean Up
 
