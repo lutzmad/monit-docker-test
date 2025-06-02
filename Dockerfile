@@ -1,5 +1,11 @@
 FROM debian:bullseye-slim
 
+# NOTE: This Dockerfile builds Monit from source for testing purposes.
+# For production use, download a pre-built Monit binary to significantly reduce
+# the container size and avoid including build dependencies. Consider using
+# Alpine Linux as the base image for even smaller containers.
+# See https://mmonit.com/monit/#download
+
 # Install necessary packages for building Monit (SSL and Pam are optional)
 RUN apt-get update && \
     apt-get install -y \
