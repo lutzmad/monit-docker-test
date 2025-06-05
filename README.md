@@ -18,7 +18,7 @@ This approach is particularly valuable for production containers where reliabili
 
 # Monit Docker Testing Guide
 
-A guide for testing Monit's ability to function as the init process (PID 1) in a Docker container, specifically targeting the latest Monit 5.35.0 version with init implementation.
+A guide for testing Monit's ability to function as the init process (PID 1) in a Docker container, specifically targeting the latest Monit 5.35.x version with init implementation.
 
 ## Project Structure
 
