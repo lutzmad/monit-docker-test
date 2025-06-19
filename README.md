@@ -39,7 +39,7 @@ monit-docker-test/
    - Checks for zombie processes before running
    - Logs execution to `/results/program_execution.log`
 
-2. **process.sh**: Writes its PID to a file, sleeps for 60 seconds, and exits
+2. **process.sh**: Writes its PID to a file, sleeps for 30 min, and exits
    - Checks for zombie processes before running
    - Logs execution to `/results/process_execution.log`
    - Handles SIGTERM gracefully
