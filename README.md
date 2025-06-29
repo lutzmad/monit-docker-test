@@ -83,7 +83,8 @@ Build the Docker image with the following command:
 docker build --no-cache -t monit-test .
 ```
 
-This creates a Docker image named "monit-test" containing Monit and all necessary test scripts. The `--no-cache` flag ensures a fresh build.  **Note**: This builds Monit from source in the container for testing purposes. See the NOTE in the Dockerfile for recommended production use.
+This creates a Docker image named "monit-test" containing Monit and all necessary test scripts. The `--no-cache` flag ensures a fresh build.  
+> **Note**: This builds Monit from source in the container for testing purposes. See the NOTE in the Dockerfile for recommended production use.
 
 ## Step 2: Run the Container
 
