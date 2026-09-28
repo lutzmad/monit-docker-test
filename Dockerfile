@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:trixie-slim
 
 # NOTE: This Dockerfile builds Monit from source for testing purposes.
 # For production use, download a pre-built Monit binary to significantly reduce
