@@ -1,11 +1,11 @@
-# /etc/monit/monitrc
+# /etc/monitrc
 # Monit configuration for Docker tests
 # This configuration is designed to test Monit as PID 1 in a container
 
 # -- Global Settings --
 set daemon 3                      # Check services every 3 seconds for faster testing. Use > 5 sec in prod
 set init                          # Prevent Monit from transforming itself into a daemon process
-set logfile /dev/stdout           # Log directly to container output
+set log /dev/stdout               # Log directly to container output
 set pidfile /var/run/monit.pid    # Location for Monit's own PID file
 set idfile /var/lib/monit/id      # Store Monit ID file
 set statefile /var/lib/monit/state # Store state file
