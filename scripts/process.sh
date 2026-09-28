@@ -27,7 +27,7 @@ setsid /bin/bash -c '
     trap "echo \"$(date): process.sh received SIGTERM\" >> /results/process_execution.log; rm -f /tmp/process.pid; exit 0" TERM
     
     # Sleep for 30 min
-    sleep 1800
+    sleep 1800 & wait $!
     
     # Exit cleanly
     echo "$(date): process.sh daemon completed" >> /results/process_execution.log
