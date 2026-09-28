@@ -1,209 +1,145 @@
-# Why Run Monit as PID 1 in Containers?
+# Monit as PID 1 in Docker
 
-Running Monit as PID 1 (init process) in a container provides several key benefits:
+This repository runs [Monit](https://mmonit.com/monit/) as the init process (PID 1) of a Docker container, with step-by-step tests that show zombie processes being reaped, a crashed service being restarted and Monit handling the container shutdown.
 
-1. **Process Reaping**: In containers, the PID 1 process is responsible for "reaping" zombie processes - processes that have completed but whose exit status hasn't been collected. Without proper reaping, zombies accumulate and consume resources. Monit properly manages this critical init responsibility.
+## Why Monit as PID 1
 
-2. **Signal Handling**: PID 1 must handle and forward signals properly. When a container receives a shutdown signal (SIGTERM), Monit ensures all child processes shut down gracefully before the container stops, preventing data corruption.
+The first process in a container runs as PID 1. Orphaned processes are re-parented to it, and it must reap them when they exit, or they remain as zombies. It also receives only the signals it has a handler for, so a program without a SIGTERM handler does not react to `docker stop`. Many applications are not written for this, which is why containers often add a minimal init such as tini or dumb-init.
 
-3. **Consolidated Functionality**: Rather than using separate tools (like tini, dumb-init, or s6) alongside Monit, using Monit directly as PID 1 reduces complexity and container bloat.
+Monit 5.35.0 and later does this work itself: it reaps every child process, and on SIGTERM it stops all services with their stop programs, in reverse dependency order, before it exits.
 
-4. **Built-in Monitoring**: Unlike other init replacements, Monit also provides robust service monitoring, automatic restarts, and notifications, making it a comprehensive solution for container health.
+Unlike tini and dumb-init, Monit also supervises the services:
 
-5. **Ordered Startup and Dependencies**: Monit can start services in a specific sequence and manage dependencies between them. This is crucial for multi-service containers where certain services must be fully operational before others start, a capability typically found only in full init systems like systemd.
+- It restarts a service when its process dies, when it stops answering on its port, or when it uses too much memory or CPU.
+- It starts services in dependency order, and restarts dependent services together with the service they depend on.
+- It runs scheduled jobs with cron syntax and checks their exit status, so the container needs no cron daemon.
+- It sends alerts by email or through a script of your choice, and it can report to [M/Monit](https://mmonit.com/), which shows all your Monit instances in one place.
+- It has a web interface and a command line for status, start, stop and restart.
 
-6. **Improved Reliability**: Proper init functionality prevents common issues in containerized applications such as orphaned processes, improper shutdowns, and resource leaks.
+A container that runs several services therefore needs no extra init, supervisor or cron daemon. The tests below show some of this at work.
 
-This approach is particularly valuable for production containers where reliability, proper resource management, and clean application lifecycle handling are critical.
+More background and a monitrc example: [Monit as PID 1 in a container](https://mmonit.com/wiki/Monit/Container) on the Monit wiki.
 
-# Monit Docker Testing Guide
+## What's in the repository
 
-A guide for testing Monit's ability to function as the init process (PID 1) in a Docker container, specifically targeting the latest Monit 5.35.x version with init implementation.
+- `Dockerfile` fetches and builds the current Monit source on Debian, and starts Monit as PID 1 with `monit -I`.
+- `monitrc` is the test configuration, with a 3-second cycle and the web interface on port 2812. It has a program check, a process check, a system check and a zombie check.
+- `scripts/program.sh` is run by the program check. It logs any zombie processes it finds, sleeps 10 seconds and exits.
+- `scripts/process.sh` starts the long-running process that the process check watches through `/tmp/process.pid`.
+- `scripts/check_zombies.sh` prints Monit's status and counts zombie processes. The zombie check runs it every 5 cycles.
 
-## Project Structure
+The scripts and alert actions log to `/results` in the container.
 
-You've already created the directory structure:
-```
-monit-docker-test/
-├── Dockerfile
-├── monitrc  # Will be placed at /etc/monitrc in the container
-└── scripts/
-    ├── program.sh
-    ├── process.sh
-    └── check_zombies.sh
-```
+## Requirements
 
-## Test Script Details
+Docker: Docker Desktop on macOS and Windows, or Docker Engine on Linux. See [Get Docker](https://docs.docker.com/get-started/get-docker/).
 
-1. **program.sh**: Sleeps for 10 seconds and exits
-   - Checks for zombie processes before running
-   - Logs execution to `/results/program_execution.log`
+## Running the tests
 
-2. **process.sh**: Writes its PID to a file, sleeps for 30 min, and exits
-   - Checks for zombie processes before running
-   - Logs execution to `/results/process_execution.log`
-   - Handles SIGTERM gracefully
-
-3. **check_zombies.sh**: Utility to check for zombie processes
-   - Can be run manually to verify Monit is properly reaping child processes
-
-# Testing Monit as PID 1 in Docker
-
-This guide provides step-by-step instructions for testing Monit's capabilities as a PID 1 replacement in a Docker container, with a focus on making it accessible for Docker beginners.
-
-## Prerequisites
-
-1. **Install Docker**
-   - For macOS: Docker Desktop
-       - Download Docker Desktop from [https://desktop.docker.com/mac/main/arm64/Docker.dmg](https://desktop.docker.com/mac/main/arm64/Docker.dmg) for macOS with Apple Silicon
-       - For Intel Macs, use [https://desktop.docker.com/mac/main/amd64/Docker.dmg](https://desktop.docker.com/mac/main/amd64/Docker.dmg)
-       - Install the application by dragging it to your Applications folder
-   - For Linux: Docker Engine
-   - For Windows: Docker Desktop with WSL2
-
-2. **Clone or download the test repository**
-   - Ensure you have the `monit-docker-test` directory containing all necessary files:
-     - Dockerfile
-     - monitrc
-     - scripts/program.sh
-     - scripts/process.sh
-     - scripts/check_zombies.sh
-
-## Step 1: Build the Docker Image
-
-Open Terminal and navigate to your test directory:
+### 1. Build the image
 
 ```bash
+git clone https://github.com/MMonit/monit-docker-test.git
 cd monit-docker-test
-```
-
-Build the Docker image with the following command:
-
-```bash
 docker build --no-cache -t monit-test .
 ```
 
-This creates a Docker image named "monit-test" containing Monit and all necessary test scripts. The `--no-cache` flag ensures a fresh build.  
-> **Note**: This builds Monit from source in the container for testing purposes. See the NOTE in the Dockerfile for recommended production use.
+The build fetches and compiles the current Monit source, and `--no-cache` keeps Docker from reusing an earlier build. For production images, install a pre-built Monit binary instead, as the note in the Dockerfile describes.
 
-## Step 2: Run the Container
-
-Remove any existing containers with the same name:
-
-```bash
-docker rm -f monit-container 2>/dev/null || true
-```
-
-Start a new container:
+### 2. Start the container
 
 ```bash
 docker run -d --name monit-container -p 2812:2812 monit-test
 ```
 
-This runs the container in detached mode (`-d`), names it "monit-container", and maps port 2812 for Monit's web interface.
+Monit's web interface is now at http://localhost:2812, where you can follow the tests below. If a container with this name is left from an earlier run, remove it first with `docker rm -f monit-container`.
 
-## Step 3: Verify Monit is Running as PID 1
-
-```bash
-docker exec -it monit-container ps -p 1 -o comm=
-```
-
-You should see `monit` as the output, confirming Monit is running as PID 1.
-
-## Step 4: Check for Zombie Processes
+### 3. Check that Monit is PID 1
 
 ```bash
-docker exec -it monit-container /usr/local/bin/check_zombies.sh
+docker exec monit-container ps -p 1 -o comm=
 ```
 
-This runs the check_zombies.sh script inside the container, which provides information about the container's processes and checks for zombie processes.
+The output is `monit`.
 
-## Step 5: Test Zombie Process Reaping
-
-Create some short-lived processes and check if they become zombies:
+### 4. Check the services
 
 ```bash
-docker exec -it monit-container bash -c 'for i in {1..10}; do (sleep 1 && exit) & done; sleep 3; ps -eo stat,pid,ppid,cmd | grep -c "^Z"'
+docker exec monit-container monit summary
 ```
 
-The output should be `0` if Monit is properly reaping processes.
-
-## Step 6: Test Process Monitoring
-
-Kill the monitored process and verify that Monit restarts it:
+`check_zombies.sh` prints the same summary, the number of zombie processes and the latest log entries of the scripts:
 
 ```bash
-docker exec -it monit-container bash -c 'kill $(cat /tmp/process.pid); sleep 5; ps ax | grep process.sh'
+docker exec monit-container /usr/local/bin/check_zombies.sh
 ```
 
-You should see that process.sh is running again after being killed.
+### 5. Zombie reaping
 
-## Step 7: Check Monit's Status
+Each `(sleep 1 &)` below starts a process whose parent exits at once, so the process is re-parented to PID 1. When it ends a second later, only PID 1 can reap it:
 
 ```bash
-docker exec -it monit-container monit summary
+docker exec monit-container bash -c 'for i in {1..10}; do (sleep 1 &); done; sleep 3; ps -eo stat= | grep -c "^Z"'
 ```
 
-This shows the status of all services monitored by Monit.
-
-## Step 8: Check Resource Usage
-
-Verify that Monit has minimal resource overhead as PID 1:
+The output is `0`: Monit has reaped all ten. For comparison, run the same test in a container where `sleep` is PID 1:
 
 ```bash
-docker exec -it monit-container bash -c 'ps -o pid,pcpu,pmem,rss,cmd -p 1'
+docker run -d --name no-init --entrypoint sleep monit-test infinity
+docker exec no-init bash -c 'for i in {1..10}; do (sleep 1 &); done; sleep 3; ps -eo stat= | grep -c "^Z"'
+docker rm -f no-init
 ```
 
-You should see low CPU and memory usage for the Monit process.
+Here the output is `10`. Nothing reaps the processes, and they stay zombies until the container is removed.
 
-## Step 9: Access the Web Interface
+### 6. Service restart
 
-Open a browser and go to:
-- http://localhost:2812 (for monit-container)
+Kill the monitored process as if it had crashed, and read its PID again ten seconds later:
 
-## Step 10: Test Signal Handling (Container Shutdown)
+```bash
+docker exec monit-container bash -c 'cat /tmp/process.pid; kill -9 $(cat /tmp/process.pid); sleep 10; cat /tmp/process.pid'
+```
 
-Stop the container to test Monit's shutdown handling:
+The second PID is a new one: Monit found the process gone and started it again. `docker logs monit-container` shows the restart.
+
+### 7. Resource usage
+
+To see how little CPU and memory Monit uses:
+
+```bash
+docker exec monit-container ps -o pid,pcpu,pmem,rss,cmd -p 1
+```
+
+Expect a CPU share near zero and about 8 MB of resident memory.
+
+### 8. Shutdown
 
 ```bash
 docker stop monit-container
+docker logs monit-container 2>&1 | grep -E "shutdown|stopped"
+docker inspect -f '{{.State.ExitCode}}' monit-container
 ```
 
-Check the logs to verify proper shutdown:
+`docker stop` returns in about a second. Among the log lines are:
 
-```bash
-docker logs monit-container | grep -E "shutdown|stopped|performing|responsibilities"
+```
+Monit running as PID 1, performing init shutdown responsibilities
+Monit daemon with pid [1] stopped
 ```
 
-You should see messages indicating that Monit recognized it was running as PID 1 and performed shutdown responsibilities.
+The exit code is `0`: Monit stopped the services and then exited on its own. A container whose PID 1 ignores SIGTERM ends with `137` instead, killed by Docker when the stop timeout runs out.
 
-## Step 11: Clean Up
-
-When finished testing:
+### 9. Clean up
 
 ```bash
-docker stop monit-container
-docker rm monit-container
+docker rm -f monit-container
 docker rmi monit-test
 ```
 
-## What Success Looks Like
-
-Your test is successful if:
-
-1. **Monit is running as PID 1**: Confirmed in Step 3
-2. **No zombie processes**: Verified in Steps 4 and 5
-3. **Process monitoring works**: Processes restart when killed as seen in Step 6
-4. **Clean shutdown**: Proper signal handling during container termination in Step 10
-5. **Resource efficiency**: Low resource usage as observed in Step 8
-
 ## Troubleshooting
 
-If the container stops immediately:
-- Check container logs: `docker logs monit-container`
-- Verify file permissions within the container
-- Validate the monitrc file: `docker exec -it monit-container monit -t`
+If the container exits right after it starts, `docker logs monit-container` shows why. To check the syntax of the control file:
 
-If zombie processes are detected:
-- Run `docker exec -it monit-container ps -eo stat,pid,ppid,cmd` to see details
-- Check if Monit eventually reaps them after a few seconds
+```bash
+docker run --rm monit-test -t
+```
