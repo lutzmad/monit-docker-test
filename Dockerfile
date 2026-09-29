@@ -24,7 +24,7 @@ RUN apt-get update && \
 
 # Clone and build the latest Monit
 WORKDIR /tmp
-RUN git clone https://bitbucket.org/tildeslash/monit.git && \
+RUN git clone https://github.com/MMonit/monit.git && \
     cd monit && \
     ./bootstrap && \
     ./configure && \
